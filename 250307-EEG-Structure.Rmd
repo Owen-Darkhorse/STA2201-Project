@@ -1,0 +1,72 @@
+---
+title: "250307-EEG-Structure"
+output: html_document
+date: "2025-03-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Struture of Sample
+```{r}
+filePath = "../derivatives/sub-001/eeg/sub-001_task-eyesclosed_eeg.set"
+library(R.matlab)
+
+eegData <- readMat(filePath)
+str(eegData)
+```
+```{r}
+procData <- eegData$data
+icaWeights <- eegData$icaweights
+icaWeightsInv <- eegData$icawinv
+icaSphere <- eegData$icasphere
+
+range(procData)
+range(icaWeights)
+range(icaWeightsInv)
+range(icaSphere)
+```
+# Visualization
+```{r}
+library(tidyverse)
+multiLinePlot <- function(mat) {
+  n <- nrow(mat)
+  p <- ncol(mat)
+  mat <- cbind("Index" = 1:n, mat) %>% as.data.frame()
+  
+  g <- ggplot(data = mat)
+  for (j in 2:(p+1)) {
+    g <- g + geom_line(aes_string(x = "Index", 
+                            y = paste0("V", j),
+                            color = factor(j)))
+  }
+  g + 
+    ggtitle("Time Series of EEG")+
+    scale_color_discrete()
+  
+  print(g)
+}
+
+procData <- t(procData)
+multiLinePlot(procData[1:1000,])
+```
+
+```{r}
+heatmap = function(A){
+  n = nrow(A)
+  p = ncol(A)  
+  df = data.frame(value = c(A),  i = 1:n, j = rep(1:p, rep(n, p)))
+  ggplot(df, aes(j, i, fill = value)) + 
+    geom_tile()+
+    #scale_fill_viridis()+
+    scale_fill_gradient(low="white", high="red")+
+    scale_y_reverse()+
+    theme_void()
+}
+
+heatmap(icaWeights)
+heatmap(icaWeightsInv)
+heatmap(icaSphere)
+heatmap(procData)
+```

@@ -51,7 +51,7 @@ multiLinePlot <- function(mat) {
 procData <- t(procData)
 multiLinePlot(procData[1:1000,])
 ```
-
+## Heatmaps
 ```{r}
 heatmap = function(A){
   n = nrow(A)
@@ -60,7 +60,7 @@ heatmap = function(A){
   ggplot(df, aes(j, i, fill = value)) + 
     geom_tile()+
     #scale_fill_viridis()+
-    scale_fill_gradient(low="white", high="red")+
+    scale_fill_gradient(low="yellow", high="darkgreen")+
     scale_y_reverse()+
     theme_void()
 }
@@ -69,4 +69,100 @@ heatmap(icaWeights)
 heatmap(icaWeightsInv)
 heatmap(icaSphere)
 heatmap(procData)
+
+heatmap(procData)
+```
+```{r}
+heatmap(t(procData))
+```
+
+## Covariance Graphs
+```{r}
+coVarMat <- var(procData)
+heatmap(coVarMat)
+
+library(igraph)
+
+corrMat <- cor(procData)
+weightMat <- corrMat
+
+indGrid <- expand.grid(seq(1:19), seq(1:19))
+
+weightMat <- map2(indGrid$Var1, indGrid$Var2, .f = function(i, j) {
+  if (i==j) {
+    0
+  } else if (abs(corrMat[i,j]) >= 0.5) {
+    corrMat[i,j]
+  } else {
+    0
+  }
+}) %>% as.vector()
+
+weightMat <- matrix(weightMat, nrow = 19, ncol =19)
+
+corrGraph <- graph_from_adjacency_matrix(weightMat, mode = "undirected", weighted = T, diag = F)
+plot(corrGraph)
+```
+
+## Fast Fourier Transforms
+```{r}
+library(eegkit)
+
+# Single time series
+x <- procdata[,1]
+fftRes <- eegfft(x, 500)
+ggplot(fftRes) + 
+  geom_line(aes(x = frequency, y=strength))+
+  labs("frequency", "strength", title = "FFT of single time series")
+```
+
+```{r}
+## Three columns of time series
+df <-  procdata[,1:3]
+fftRes <- eegfft(df, 500)
+freqPivot <- cbind(fftRes$frequency, fftRes$strength)
+plot(freqPivot[,1], freqPivot[,2], main = "FFT 2 signals", type ="l", col = adjustcolor("purple", 0.3))
+lines(freqPivot[,1], freqPivot[,3], type="l", col = adjustcolor("green", 0.3))
+lines(freqPivot[,1], freqPivot[,4], type="l", col = adjustcolor("red", 0.3))
+```
+
+Roughly the same power spectral density as a single eletrode.
+
+## Power Spectural Density
+```{r}
+eegpsd(x, 500, type = "l", main = "power spectral density")
+
+```
+
+## Coherence Measure
+```{r}
+library(seewave)
+coherence <- coh(procdata[,1], procdata[,2], 500)
+plot(coherence, main = "Coherence between electrode 1 and 2",
+     type = "l")
+
+mean(coherence[,2])
+```
+```{r}
+
+# Initialize coherence matrix (19 × 19)
+coh_matrix <- matrix(0, nrow = 19, ncol = 19, dimnames = list(colnames(eeg_data), colnames(eeg_data)))
+
+# Compute coherence for all electrode pairs
+for (i in 1:18) {
+  for (j in (i + 1):19) {
+    coh_matrix[i, j] <- mean(coh(procdata[, i], procdata[, j], f = 500)[,2])  # f = sampling rate (Hz)
+    coh_matrix[j, i] <- coh_matrix[i, j]  # Symmetric matrix
+  }
+}
+
+# Plot (heatmap)
+library(ggplot2)
+
+heatmap(coh_matrix)
+
+# ggplot(melt(coh_matrix), aes(Var1, Var2, fill = value)) +
+#   geom_tile() +
+#   scale_fill_viridis_c() +
+#   labs(title = "Coherence Between Electrodes (Unfiltered)", x = "Electrode", y = "Electrode")
 ```
